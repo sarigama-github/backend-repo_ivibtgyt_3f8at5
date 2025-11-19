@@ -1,48 +1,46 @@
 """
-Database Schemas
+Database Schemas for Cybersecurity Awareness Game
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
-
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+Each Pydantic model represents a collection in MongoDB.
+Collection name = lowercase of class name.
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel, Field, EmailStr
+from typing import List, Optional, Dict, Any
 
-# Example schemas (replace with your own):
 
 class User(BaseModel):
-    """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
-    """
+    """Users collection schema -> collection: "user"""
     name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+    email: EmailStr = Field(..., description="User email (unique)")
+    password_hash: str = Field(..., description="Password hash (server-side only)")
+    token: Optional[str] = Field(None, description="Session token for simple auth")
 
-class Product(BaseModel):
-    """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
-    """
-    title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
 
-# Add your own schemas here:
-# --------------------------------------------------
+class Question(BaseModel):
+    """Questions for quizzes -> collection: "question"""
+    category: str = Field(..., description="Module category, e.g., phishing, credential, rogueapps")
+    prompt: str = Field(..., description="Question text or scenario")
+    options: List[str] = Field(..., min_length=2, description="Multiple choice options")
+    correct_index: int = Field(..., ge=0, description="Index of correct option in options list")
+    explanation: Optional[str] = Field(None, description="Explanation shown after answering")
+    difficulty: Optional[str] = Field("easy", description="Difficulty level: easy/medium/hard")
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+
+class Attempt(BaseModel):
+    """Quiz attempts -> collection: "attempt"""
+    user_id: str = Field(..., description="Reference to user _id as string")
+    category: str = Field(..., description="Which module the attempt belongs to")
+    answers: List[int] = Field(..., description="Selected option index for each question in order")
+    correct_count: int = Field(..., ge=0, description="Number of correct answers")
+    total: int = Field(..., ge=1, description="Total number of questions in the attempt")
+    score: float = Field(..., ge=0, le=100, description="Score percentage 0-100")
+
+
+class Progress(BaseModel):
+    """Aggregated progress per user -> collection: "progress"""
+    user_id: str = Field(...)
+    by_category: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Per-category stats: attempts, best_score, last_score"
+    )
